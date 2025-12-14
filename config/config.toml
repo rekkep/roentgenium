@@ -1,0 +1,25 @@
+[window]
+x = 0
+y = 0
+width = 400
+height = 200
+top_offset = 200
+
+margin_left = 0
+margin_top = 0
+margin_right = 0
+margin_bottom = 0
+
+[path]
+entries = "config/entries.toml"
+style = "config/style.qss"
+config = "config/config.toml"
+
+[entries]
+visible_entries = 5
+start_index = 0
+window_start = 0
+delta = 1
+
+[fuzzy]
+fuzzy_limit = 30

@@ -1,0 +1,14 @@
+[[group]]
+name = "test1"
+description = "test group"
+command = ""
+
+[group.entry]
+name = "ls /Applications/ /Applications/Utilities/ /System/Applications/ /System/Applications/Utilities/ | grep '.app' | sed 's/\\.app//' | tr -d \"'\" | sort"
+name_is_command = true
+command = 'open -a "{name}"'
+
+[group.input_field]
+name = "Search for an application"
+display_text = "Search for an application"
+command = "BUILD_IN_fuzzy"
