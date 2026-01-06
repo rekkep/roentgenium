@@ -1,6 +1,6 @@
 from subprocess import run as run_subprocess
 
-from toml import load as load_toml
+from tomllib import load as load_toml
 
 
 # ----------------------------
@@ -134,7 +134,8 @@ def create_all_entries(file_path):
     Returns:
         List of all Entry objects in all groups
     """
-    parsed_data = load_toml(file_path)
+    with file_path.open("rb") as f:
+        parsed_data = load_toml(f)
     all_entries = []
     input_field = None
 

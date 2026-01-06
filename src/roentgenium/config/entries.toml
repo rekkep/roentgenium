@@ -1,0 +1,19 @@
+[[group]]
+name = "test1"
+description = "test group"
+command = ""
+
+    [[group.entry]]
+    name = "1"
+    name_is_command = true
+    command = 'open -a "{name}"'
+
+    [[group.entry]]
+    name = "2"
+    name_is_command = true
+    command = 'open -a "{name}"'
+
+    [group.input_field]
+    name = "Search for an application"
+    display_text = "Search for an application"
+    command = "BUILD_IN_fuzzy"
