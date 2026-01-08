@@ -1,15 +1,12 @@
 import argparse
 import sys
-from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
 from .__init__ import __version__
-from .entries import create_all_entries
-from .gui import SelectableLabelApp
-from .new_config import Config
-from .new_gui import RoentgeniumGui
-from .new_items import create_all_groups
+from .config import Config
+from .gui import MainWindow
+from .items import create_all_groups
 
 
 def parse_args(argv=None):
@@ -22,9 +19,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--style", default="config/style.qss", help="Path to the QSS style file"
     )
-    parser.add_argument(
-        "--groups", default="all", help="What groups should be displayed."
-    )
+    parser.add_argument("--groups", default="all", help="Selected Groups")
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
@@ -43,10 +38,6 @@ def main(argv=None):
 
     ALL_GROUPS = create_all_groups(CONFIG.config_dir / "entries.toml")
 
-    used_groups = []
-    for groups in selected_groups:
-        used_groups.append(ALL_GROUPS[groups])
-
     # Start Qt app
     app = QApplication(sys.argv)
 
@@ -56,10 +47,18 @@ def main(argv=None):
         app.setStyleSheet(f.read())
 
     # Launch main window
-    main_window = SelectableLabelApp(ENTRIES, INPUT_FIELD, CONFIG)
-    # main_window = RoentgeniumGui(
-    #     CONFIG, used_groups
-    # )
+    used_groups = args.groups
+    if used_groups == "all":
+        first_group_name = next(iter(ALL_GROUPS))
+        first_group = ALL_GROUPS[first_group_name]
+        main_window = MainWindow(
+            CONFIG, list(ALL_GROUPS.values()), first_group.input_field
+        )
+
+    else:
+        print("FIX MULTIPLE GROUPS")
+        sys.exit(app.exec())
+
     main_window.show()
 
     sys.exit(app.exec())

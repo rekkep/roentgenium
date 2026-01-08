@@ -1,19 +1,20 @@
 [[group]]
-name = "test1"
-description = "test group"
+name = "test2"
+description = "test group 2"
 command = ""
 
     [[group.entry]]
-    name = "1"
+    name = "ls ~/.config"
     name_is_command = true
     command = 'open -a "{name}"'
 
     [[group.entry]]
-    name = "2"
-    name_is_command = true
-    command = 'open -a "{name}"'
+    name = "Test"
+    name_is_command = false
+    command = 'echo Test'
 
     [group.input_field]
     name = "Search for an application"
     display_text = "Search for an application"
-    command = "BUILD_IN_fuzzy"
+    action = "fuzzy search"
+    command = 'open -a "{input}"'

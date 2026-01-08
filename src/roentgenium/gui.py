@@ -1,40 +1,55 @@
+from subprocess import run as run_subprocess
+
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QCursor, QMouseEvent
-from PySide6.QtWidgets import QApplication, QLabel, QLineEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QVBoxLayout,
+    QWidget,
+)
 from rapidfuzz import fuzz, process
 
-from .entries import Entry
+from .items import *
 
 
-class SelectableLabelApp(QWidget):
-    """
-    Main widget for a searchable, selectable list of entries.
-    Features:
-    - Text input for searching entries
-    - Label list for displaying and selecting entries
-    - Keyboard navigation and selection
-    - Fuzzy search integration via RapidFuzz
-    - Styling is handled via an external QSS file.
-    """
-
-    def __init__(self, entries: list[Entry], input_field, CONFIG):
+class MainWindow(QWidget):
+    def __init__(self, config, groups, input_field):
         super().__init__()
-        self.CONFIG = CONFIG
+        self.CONFIG = config
+        self.supported_events = {
+            "fuzzy search": self.fuzzy_finding,
+            "calculator": None,
+            "open": None,
+            "command": None,
+        }
 
-        # ----------------------------
-        # Data initialization
-        # ----------------------------
-        # Original list of entries
-        self.entries = entries
-        # Map name -> entry
-        self.name_to_entry = {entry.name: entry for entry in self.entries}
-        # Current selected entry
-        self.current_index = self.CONFIG.ENTRIES_START_INDEX
-        # Start index of visible labels
-        self.window_start = self.CONFIG.ENTRIES_WINDOW_START
-        # QLable widget for displaying entries
-        self.labels = []
+        self.selected_index = 0
 
+        for group in groups:
+            self.all_entries = group.entries
+        self.window_setup()
+        self.input_field = self.create_text_input(input_field)
+
+        self.entry_labels_dict = {}
+
+        for entry_name in self.all_entries:
+            self.entry_labels_dict[str(entry_name)] = self.create_text_label(
+                str(entry_name)
+            )
+
+        self.entry_labels_list = list(self.entry_labels_dict.values())
+
+        self.refresh_labels(
+            self.entry_labels_list,
+            [self.selected_index, self.CONFIG.ENTRIES_VISIBLE_ENTRIES],
+        )
+
+        self.central_widget.show()
+
+    def window_setup(self):
         # ----------------------------
         # Window setup
         # ----------------------------
@@ -64,28 +79,7 @@ class SelectableLabelApp(QWidget):
         # Center the window on the active screen
         self.center_on_screen()
 
-        # ----------------------------
-        # UI setup
-        # ----------------------------
-        self.input_field = input_field
-        self.setup_text_input()  # Input field
-        self.setup_labels()  # Lable list for entries
-
-        # Show the parent widget
-        self.central_widget.show()
-
-    # ----------------------------
-    # Window spawn
-    # ----------------------------
     def center_on_screen(self):
-        """
-        Move the window to the active screen where the mouse cursor currently is.
-
-        If the cursor is not on any screen, the window will default to the primary screen.
-        The window is positioned near the top-center of the screen, with a small vertical
-        offset to mimic the typical macOS Spotlight position.
-        """
-
         # Get screen under the cursor, fallback to primary screen
         screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
         screen_geometry = screen.availableGeometry()
@@ -97,102 +91,59 @@ class SelectableLabelApp(QWidget):
         )  # offset from top menu bar
         self.move(x, y)
 
-    # ----------------------------
-    # Text input setup
-    # ----------------------------
-    def setup_text_input(self):
+    def create_text_input(self, input_field):
         """
-        Creates the input box and connects signals.
+        creates search field/text input field
+        only one possible (yet)
         """
-        self.text_input = QLineEdit(self)
-        self.text_input.setPlaceholderText(self.input_field.display_text)
-        # Intercept key event
-        self.text_input.installEventFilter(self)
-        # Update results as user types
-        self.text_input.textChanged.connect(self.on_text_changed)
-        self.main_layout.addWidget(self.text_input)
 
-    # ----------------------------
-    # Label setup
-    # ----------------------------
-    def setup_labels(self):
-        """
-        Creates VISIBLE_COUNT QLabel widgets.
-        Each label displays an entry name and highlights when selected.
-        """
-        for _ in range(self.CONFIG.ENTRIES_VISIBLE_ENTRIES):
-            label = QLabel("")
-            # For QSS highlighting
-            label.setProperty("selected", False)
-            self.labels.append(label)
-            self.main_layout.addWidget(label)
-            # Initialize labels
-            self.refresh_labels()
+        text_input_field = QLineEdit(self)
+        text_input_field.setPlaceholderText(input_field.display_text)
 
-    # ----------------------------
-    # Refresh labels based on entries
-    # ----------------------------
-    def refresh_labels(self):
-        """
-        Updates the visible labels according to:
-        - Current window start (scrolling)
-        - Selected index
-        - Whether the entry exists
-        """
-        for i, label in enumerate(self.labels):
-            entry_index = self.window_start + i
+        # key event
+        text_input_field.installEventFilter(self)
 
-            if entry_index < len(self.entries):
-                label.setText(self.entries[entry_index].name)
-                label.setVisible(True)
+        action = input_field.action
+        event = self.supported_events[action]
+        if event == "command":
+            text_input_field.textChanged.connect(
+                lambda text: self.execute_command(text, input_field.command)
+            )
+        else:
+            text_input_field.textChanged.connect(event)
 
-                selected = entry_index == self.current_index
-                label.setProperty("selected", selected)
-            else:
-                label.setVisible(False)
-                label.setProperty("selected", False)
+        self.main_layout.addWidget(text_input_field)
+        return text_input_field
 
-            # Force style update
+    def create_text_label(self, text: str):
+        label = QLabel(text)
+        label.setProperty("selected", False)
+        label.setVisible(False)
+        self.main_layout.addWidget(label)
+        return label
+
+    def refresh_labels(self, labels, range):
+        for i, label in enumerate(labels):
+            label.setVisible(range[0] <= i < range[1])
+            label.setProperty("selected", i == self.selected_index)
             label.style().unpolish(label)
             label.style().polish(label)
 
-    # ----------------------------
-    # Selection logic
-    # ----------------------------
-    def move_selection(self, delta):
-        """
-        Moves the selection up/down by delta.
-        Adjusts window_start to keep selection visible.
-        """
-        new_index = max(0, min(self.current_index + delta, len(self.entries) - 1))
+    def move_selection(self, delta: int, labels: list[QLabel]):
+        new_index = max(0, min(self.selected_index + delta, len(labels) - 1))
 
-        if new_index == self.current_index:
+        if new_index == self.selected_index:
             return
 
-        self.current_index = new_index
+        self.selected_index = new_index
 
-        # Scroll window if selection moves out of visible range
-        if self.current_index < self.window_start:
-            self.window_start = self.current_index
-        elif (
-            self.current_index
-            >= self.window_start + self.CONFIG.ENTRIES_VISIBLE_ENTRIES
-        ):
-            self.window_start = (
-                self.current_index - self.CONFIG.ENTRIES_VISIBLE_ENTRIES + 1
-            )
-
-        self.refresh_labels()
-
-    # ----------------------------
-    # Input field handeling
-    # ----------------------------
-    def on_text_changed(self, text):
-        """Triggered whenever text input changes."""
-        if self.input_field.command == "BUILD_IN_fuzzy":
-            self.fuzzy_finding(text)
-        else:
-            print("FIX IT")
+        self.refresh_labels(
+            labels,
+            [
+                min(len(labels) - self.CONFIG.ENTRIES_VISIBLE_ENTRIES, new_index),
+                new_index + self.CONFIG.ENTRIES_VISIBLE_ENTRIES,
+            ],
+        )
 
     # ----------------------------
     # Fuzzy search logic
@@ -207,14 +158,12 @@ class SelectableLabelApp(QWidget):
         # Perform prefix match
         prefix_matches = [
             name
-            for name in self.name_to_entry.keys()
+            for name in self.all_entries.keys()
             if name.lower().startswith(text.lower())
         ]
 
         # Entries not included in prefix match
-        rest = [
-            name for name in self.name_to_entry.keys() if name not in prefix_matches
-        ]
+        rest = [name for name in self.all_entries.keys() if name not in prefix_matches]
 
         # Return top 20 fuzzy matches
         fuzzy_matches = process.extract(
@@ -222,27 +171,13 @@ class SelectableLabelApp(QWidget):
         )
 
         final = prefix_matches + [r[0] for r in fuzzy_matches]
-        self.current_index = -1
-        self.entries = [self.name_to_entry[name] for name in final]
-        self.move_selection(self.CONFIG.ENTRIES_DELTA)
+        self.selected_index = -1
+        self.entry_labels_list = [self.entry_labels_dict[name] for name in final]
+        self.move_selection(self.CONFIG.ENTRIES_DELTA, self.entry_labels_list)
 
-    # ----------------------------
-    # Mouse handling
-    # ----------------------------
-    def mousePressEvent(self, event: QMouseEvent):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = (
-                event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            )
-            event.accept()
-
-    def mouseMoveEvent(self, event: QMouseEvent):
-        if self._drag_pos and event.buttons() & Qt.MouseButton.LeftButton:
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-
-    def mouseReleaseEvent(self, event: QMouseEvent):
-        self._drag_pos = None
+    def execute_command(self, text, command):
+        cmd = command.format(input=text)
+        return run_subprocess(cmd, shell=True, capture_output=True, text=True)
 
     # ----------------------------
     # Keyboard handling
@@ -254,20 +189,21 @@ class SelectableLabelApp(QWidget):
         - Enter: execute command
         - Escape: close window
         """
-        if source is self.text_input and event.type() == QEvent.Type.KeyPress:
+        if source is self.input_field and event.type() == QEvent.Type.KeyPress:
             # Down key -> move selection down
             if event.key() == Qt.Key.Key_Down:
-                self.move_selection(self.CONFIG.ENTRIES_DELTA)
+                self.move_selection(self.CONFIG.ENTRIES_DELTA, self.entry_labels_list)
                 return True
 
             # Up key -> move selection up
             if event.key() == Qt.Key.Key_Up:
-                self.move_selection(-self.CONFIG.ENTRIES_DELTA)
+                self.move_selection(-self.CONFIG.ENTRIES_DELTA, self.entry_labels_list)
                 return True
 
             # Return and enter key -> execute command and closes app
             if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                self.entries[self.current_index].execute_command()
+                name = self.entry_labels_list[self.selected_index]
+                self.all_entries[str(name.text())].execute_command()
                 self.close()
                 return True
 
