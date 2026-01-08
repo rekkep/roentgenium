@@ -1,0 +1,37 @@
+/* =============================
+   General QWidget styling
+   ============================= */
+QWidget {
+    background-color: #1e1e2e; /* Mocha background */
+    color: #cdd6f4;            /* Text color */
+    font-family: "EnvyCodeR Nerd Font Mono";
+    font-size: 16px;
+    border-radius: 16px; /* <- Rounded corners */
+}
+
+
+/* =============================
+   QLineEdit (input field)
+   ============================= */
+QLineEdit {
+    padding: 6px;
+    border: 1px solid #585b70;  /* Slightly darker for border */
+    border-radius: 6px;
+    background-color: #313244;  /* Slightly lighter than background */
+    color: #cdd6f4;
+    selection-background-color: #f5c2e7; /* Pink selection */
+}
+
+/* =============================
+   QLabel (entry labels)
+   ============================= */
+QLabel {
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+/* Selected label */
+QLabel[selected="true"] {
+    background-color: #f5c2e7;  /* Pink highlight */
+    color: #1e1e2e;             /* Dark text on highlight */
+}
