@@ -4,14 +4,14 @@ description = "test group 2"
 command = ""
 
     [[group.entry]]
-    name = "ls ~/.config"
+    name = "ls ~/Applications | grep '.app'"
     name_is_command = true
     command = 'open -a "{name}"'
 
-    [[group.entry]]
-    name = "Test"
-    name_is_command = false
-    command = 'echo Test'
+    # [[group.entry]]
+    # name = "Test"
+    # name_is_command = false
+    # command = 'echo Test'
 
     [group.input_field]
     name = "Search for an application"

@@ -27,6 +27,7 @@ class MainWindow(QWidget):
         }
 
         self.selected_index = 0
+        self.old_labels = []
 
         for group in groups:
             self.all_entries = group.entries
@@ -75,7 +76,6 @@ class MainWindow(QWidget):
             self.CONFIG.WINDOW_MARGIN_RIGHT,
             self.CONFIG.WINDOW_MARGIN_BOTTOM,
         )
-        self.setLayout(self.main_layout)
         # Center the window on the active screen
         self.center_on_screen()
 
@@ -117,17 +117,26 @@ class MainWindow(QWidget):
 
     def create_text_label(self, text: str):
         label = QLabel(text)
+        label.setMinimumSize(200, 40)
+        label.setMaximumSize(200, 40)
         label.setProperty("selected", False)
         label.setVisible(False)
-        self.main_layout.addWidget(label)
         return label
 
-    def refresh_labels(self, labels, range):
+    def refresh_labels(self, labels, visible_range):
+        for label in self.old_labels:
+            print(label.text())
+            label.setVisible(False)
+            self.main_layout.removeWidget(label)
+        self.old_labels = []
         for i, label in enumerate(labels):
-            label.setVisible(range[0] <= i < range[1])
-            label.setProperty("selected", i == self.selected_index)
-            label.style().unpolish(label)
-            label.style().polish(label)
+            if visible_range[0] <= i < visible_range[1]:
+                self.main_layout.addWidget(label)
+                label.setVisible(True)
+                label.setProperty("selected", i == self.selected_index)
+                label.style().unpolish(label)
+                label.style().polish(label)
+                self.old_labels.append(label)
 
     def move_selection(self, delta: int, labels: list[QLabel]):
         new_index = max(0, min(self.selected_index + delta, len(labels) - 1))
@@ -189,7 +198,8 @@ class MainWindow(QWidget):
         - Enter: execute command
         - Escape: close window
         """
-        if source is self.input_field and event.type() == QEvent.Type.KeyPress:
+        if isinstance(source, QLineEdit) and event.type() == QEvent.Type.KeyPress:
+            # if source is self.input_field and event.type() == QEvent.Type.KeyPress:
             # Down key -> move selection down
             if event.key() == Qt.Key.Key_Down:
                 self.move_selection(self.CONFIG.ENTRIES_DELTA, self.entry_labels_list)
